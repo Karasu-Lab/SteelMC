@@ -11,7 +11,6 @@ use crate::player::Player;
 use crate::player::advancement::rewards::grant_reward;
 use progress::{AdvancementProgress, AdvancementProgressMap};
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::time::UNIX_EPOCH;
 use steel_protocol::packets::game::CSelectAdvancementsTab;
 use steel_protocol::packets::game::CUpdateAdvancements;
 use steel_registry::REGISTRY;
@@ -19,6 +18,7 @@ use steel_registry::advancement::registry::{AdvancementNodeRef, AdvancementRef};
 use steel_registry::advancement::{AdvancementProgressData, Criteria};
 use steel_registry::vanilla_game_rules::SHOW_ADVANCEMENT_MESSAGES;
 use steel_utils::Identifier;
+use web_time::UNIX_EPOCH;
 
 /// Manages a player's collection of advancements.
 ///

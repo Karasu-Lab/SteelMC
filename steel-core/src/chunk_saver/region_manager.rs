@@ -23,7 +23,7 @@ use crate::chunk::status::ChunkStatus;
 use crate::world::World;
 
 use super::{
-    ChunkStorage, LoadedChunk, PersistentChunk,
+    ChunkStorage, LoadedChunk, PersistentChunk, PreparedChunkSave,
     format::{
         CHUNK_TABLE_SIZE, ChunkEntry, FILE_HEADER_SIZE, FIRST_DATA_SECTOR, FORMAT_VERSION,
         MAX_CHUNK_SIZE, REGION_MAGIC, RegionHeader, RegionPos, SECTOR_SIZE,
@@ -48,19 +48,6 @@ pub struct RegionManager {
     base_path: PathBuf,
     /// Open region file handles with their headers.
     regions: AsyncRwLock<FxHashMap<RegionPos, RegionHandle>>,
-}
-
-/// Prepared chunk data ready to be saved asynchronously.
-/// Created by `prepare_chunk_save` during the holder's snapshot-preparation phase.
-pub struct PreparedChunkSave {
-    /// The chunk position.
-    pub pos: ChunkPos,
-    /// The highest persisted status captured with the chunk data.
-    pub status: ChunkStatus,
-    /// The serialized chunk data.
-    pub persistent: PersistentChunk<'static>,
-    /// Runtime manager entity IDs that were either serialized or explicitly skipped.
-    pub handled_runtime_entity_ids: Vec<i32>,
 }
 
 /// An open region file with its header.
@@ -410,7 +397,7 @@ impl RegionManager {
     fn encode_chunk(prepared: PreparedChunkSave) -> io::Result<Vec<u8>> {
         let data = wincode::serialize(&prepared.persistent)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-        let compressed = zstd::encode_all(&data[..], 3)?;
+        let compressed = steel_utils::compression::encode_all(&data[..], 3)?;
 
         if compressed.len() > MAX_CHUNK_SIZE {
             return Err(io::Error::new(
@@ -533,7 +520,7 @@ impl RegionManager {
         height: i32,
         level: Weak<World>,
     ) -> Result<LoadedChunk, CorruptChunkData> {
-        let data = zstd::decode_all(&compressed[..])
+        let data = steel_utils::compression::decode_all(&compressed[..])
             .map_err(|error| CorruptChunkData(format!("zstd decode failed: {error}")))?;
         let persistent: PersistentChunk<'_> = wincode::deserialize(&data)
             .map_err(|error| CorruptChunkData(format!("chunk decode failed: {error}")))?;

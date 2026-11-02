@@ -7,6 +7,10 @@ mod pregen;
 /// The registry cache for the server.
 pub mod registry_cache;
 mod run_loop;
+#[cfg(not(target_arch = "wasm32"))]
+mod service_keys;
+#[cfg(target_arch = "wasm32")]
+#[path = "service_keys_offline.rs"]
 mod service_keys;
 mod tick_overload;
 /// The tick rate manager for the server.
@@ -40,6 +44,7 @@ use crate::entity::damage::DamageHistory;
 use crate::entity::{
     Entity, EntityBase, PendingWorldChangeToken, RemovalReason, SharedEntity, change_entity_world,
 };
+use web_time::Instant;
 
 use crate::chunk_saver::{ChunkStorage, PersistentEntity, registry::WorldStorageRegistry};
 use crate::level_data::{GameTimeSource, LevelDataManager, RespawnData, WorldGenerationSettings};
@@ -58,7 +63,8 @@ use crate::player::player_data_storage::{GlobalPlayerData, PlayerDataStorage};
 use crate::player::player_inventory::MenuRemovalStatus;
 use crate::player::{
     DomainResidenceToken, GameProfile, KnownPlayer, KnownPlayerNameLookup, KnownPlayers, Player,
-    ProfileLookupError, ResetReason, is_valid_player_name, lookup_online_profile, offline_uuid,
+    ProfileLookupClient, ProfileLookupError, ResetReason, is_valid_player_name,
+    lookup_online_profile, offline_uuid,
 };
 use crate::portal::{
     PortalKind, TeleportPostTransition, TeleportTransition, WorldChangeRequest, end_gateway,
@@ -84,7 +90,7 @@ use std::{
     collections::BTreeSet,
     io, mem,
     sync::{Arc, mpsc},
-    time::{Duration, Instant},
+    time::Duration,
 };
 use steel_crypto::{key_store::KeyStore, signature::ProfileKeyValidator};
 use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
@@ -261,7 +267,7 @@ pub async fn test_server_with_worlds_and_config(
         player_permission_updates: AsyncMutex::new(()),
         known_players: SyncMutex::new(KnownPlayerCacheState::new(KnownPlayers::new())),
         known_player_save_idle: Notify::new(),
-        profile_lookup_client: reqwest::Client::new(),
+        profile_lookup_client: ProfileLookupClient::new(),
         service_keys: Arc::new(service_keys),
         pending_player_joins: PlayerJoinQueue::new(),
         pending_player_disconnects: PlayerDisconnectQueue::new(),
@@ -519,7 +525,7 @@ pub struct Server {
     /// Wakes shutdown when the single known-player save worker becomes idle.
     known_player_save_idle: Notify,
     /// HTTP client used by online-mode name-to-profile lookups.
-    profile_lookup_client: reqwest::Client,
+    profile_lookup_client: ProfileLookupClient,
     /// Cached Mojang service keys used to validate player-key certificates.
     service_keys: Arc<ServiceKeyStore>,
     /// Player joins prepared by async I/O and finalized at the game tick safe point.
@@ -677,8 +683,7 @@ impl Server {
             if cfg!(debug_assertions) {
                 builder = builder.stack_size(DEBUG_STACK_SIZE);
             }
-            builder
-                .build()
+            steel_utils::threading::build_thread_pool(builder)
                 .map_err(|e| format!("failed to create generation thread pool: {e}"))?
         });
         let chunk_encoding_pool = Arc::new({
@@ -689,8 +694,7 @@ impl Server {
             {
                 builder = builder.num_threads(chunk_encoding_threads);
             }
-            builder
-                .build()
+            steel_utils::threading::build_thread_pool(builder)
                 .map_err(|e| format!("failed to create chunk encoding thread pool: {e}"))?
         });
 
@@ -849,7 +853,7 @@ impl Server {
             player_permission_updates: AsyncMutex::new(()),
             known_players: SyncMutex::new(KnownPlayerCacheState::new(known_players)),
             known_player_save_idle: Notify::new(),
-            profile_lookup_client: reqwest::Client::new(),
+            profile_lookup_client: ProfileLookupClient::new(),
             service_keys,
             pending_player_joins: PlayerJoinQueue::new(),
             pending_player_disconnects: PlayerDisconnectQueue::new(),

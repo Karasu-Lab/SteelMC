@@ -3,7 +3,7 @@
 //! Ported from net/minecraft/network/chat/SignedMessageLink.java,
 //! SignedMessageBody.java, and SignedMessageChain.java
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 use steel_crypto::{CryptError, SignatureUpdater, signature::SignatureOutput};
 use thiserror::Error;

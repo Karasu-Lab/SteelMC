@@ -69,3 +69,7 @@ jaeger = [
     "dep:opentelemetry-otlp",
     "dep:tracing-opentelemetry",
 ]
+
+# OS-backed tokio features, unavailable on wasm32.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["net", "fs", "rt-multi-thread", "io-std", "signal"] }

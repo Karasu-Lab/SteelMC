@@ -1,4 +1,4 @@
-use std::time::Instant;
+use web_time::Instant;
 
 /// Number of tick samples to keep for averaging (matches vanilla).
 const TICK_STATS_SPAN: usize = 100;

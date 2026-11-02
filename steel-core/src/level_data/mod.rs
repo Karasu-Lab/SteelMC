@@ -17,9 +17,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use steel_math::{DEGREE_90, wrap_degrees};
 use steel_registry::REGISTRY;
 use steel_registry::game_rules::GameRuleValues;
+use steel_utils::fs;
 use steel_utils::types::Difficulty;
 use steel_utils::{BlockPos, GlobalPos, Identifier};
-use tokio::fs;
 
 use crate::world::{MAX_SIZE, clock::WorldClockManager};
 

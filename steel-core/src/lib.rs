@@ -19,6 +19,7 @@ pub mod config;
 pub(crate) mod enchantment_helper;
 pub mod entity;
 pub mod fluid;
+pub mod headless;
 pub mod inventory;
 pub mod level_data;
 pub mod permission;

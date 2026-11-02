@@ -9,6 +9,7 @@ use std::{
     },
     time::Duration,
 };
+use web_time::Instant;
 
 use crate::chunk::chunk_ticket_storage::ChunkTicketStorage;
 use crate::chunk::full_chunk::{FullChunkBlockSetResult, FullChunkRef};
@@ -82,14 +83,14 @@ use steel_utils::{
     WorldAabb,
     types::{Difficulty, GameType, UpdateFlags},
 };
-use tokio::{runtime::Runtime, time::Instant};
+use tokio::runtime::Runtime;
 
 use crate::{
     ChunkMap,
     behavior::{BLOCK_BEHAVIORS, BlockCollisionContext, BlockLootContext, FLUID_BEHAVIORS},
     block_entity::{BlockEntity, SharedBlockEntity, entities::EndGatewayBlockEntity},
     chunk::{heightmap::HeightmapType, player_chunk_view::PlayerChunkView},
-    chunk_saver::{ChunkStorage, RamOnlyStorage, RegionManager},
+    chunk_saver::{ChunkStorage, RamOnlyStorage},
     entity::{
         AddEntityError, Entity, EntityChangeSenders, EntityChunkCallback, EntityLifecycleChanges,
         EntityMovementSyncPacket, EntityOwnership, EntityTracker, EntityVisibility,
@@ -365,8 +366,16 @@ impl World {
         let default_gamemode = config.default_gamemode;
         // Create storage backend based on config
         let storage: Arc<ChunkStorage> = match &config.storage {
-            WorldStorageConfig::Disk { path } => {
-                Arc::new(ChunkStorage::Disk(RegionManager::new(path.clone())))
+            #[cfg(not(target_arch = "wasm32"))]
+            WorldStorageConfig::Disk { path } => Arc::new(ChunkStorage::Disk(
+                crate::chunk_saver::RegionManager::new(path.clone()),
+            )),
+            #[cfg(target_arch = "wasm32")]
+            WorldStorageConfig::Disk { .. } => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "disk world storage is unavailable on wasm32",
+                ));
             }
             WorldStorageConfig::RamOnly => {
                 Arc::new(ChunkStorage::RamOnly(RamOnlyStorage::empty_world()))

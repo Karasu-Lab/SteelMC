@@ -2,9 +2,9 @@
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::time::SystemTime;
 use steel_registry::advancement::AdvancementRequirement;
 use steel_registry::advancement::registry::AdvancementRef;
+use web_time::SystemTime;
 
 /// represent a map of all progress made for advancement of a specific player
 #[derive(Debug, Default, Clone)]

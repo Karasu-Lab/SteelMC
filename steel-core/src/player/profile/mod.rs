@@ -1,12 +1,16 @@
 //! Player profile helpers for name validation, offline UUIDs, and known player lookup
 
 mod known_players;
+#[cfg(not(target_arch = "wasm32"))]
+mod lookup;
+#[cfg(target_arch = "wasm32")]
+#[path = "lookup_offline.rs"]
 mod lookup;
 
 pub(crate) use known_players::{GAME_PROFILE_CACHE_LIMIT, KnownPlayerNameLookup};
 pub use known_players::{KnownPlayer, KnownPlayers};
-pub use lookup::ProfileLookupError;
 pub(crate) use lookup::lookup_online_profile;
+pub use lookup::{ProfileLookupClient, ProfileLookupError};
 
 pub use steel_registry::GameProfile;
 use uuid::{Builder, Uuid, Variant, Version};

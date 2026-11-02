@@ -1,6 +1,7 @@
 //! Skipping ticks the server is too far behind to replay.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use web_time::Instant;
 
 const OVERLOAD_THRESHOLD: Duration = Duration::from_secs(1);
 const OVERLOAD_THRESHOLD_TICKS: u32 = 20;

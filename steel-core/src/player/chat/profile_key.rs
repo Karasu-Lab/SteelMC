@@ -2,7 +2,8 @@
 //!
 //! Ported from net/minecraft/world/entity/player/ProfilePublicKey.java
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
+use web_time::{SystemTime, UNIX_EPOCH};
 
 use rsa::RsaPublicKey;
 use steel_crypto::{

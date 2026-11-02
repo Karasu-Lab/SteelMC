@@ -6,13 +6,36 @@
 
 use std::{
     fmt::Display,
-    fs as sync_fs, io,
+    io,
     path::{Path, PathBuf},
 };
 
+use crate::fs;
 use serde::{Serialize, de::DeserializeOwned};
-use tokio::fs;
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs as sync_fs;
 use wincode::{SchemaRead, SchemaWrite, config::DefaultConfig};
+
+#[cfg(target_arch = "wasm32")]
+mod sync_fs {
+    use std::{io, path::Path};
+
+    fn unsupported<T>() -> io::Result<T> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
+
+    pub fn read(_: impl AsRef<Path>) -> io::Result<Vec<u8>> {
+        unsupported()
+    }
+
+    pub fn create_dir_all(_: impl AsRef<Path>) -> io::Result<()> {
+        unsupported()
+    }
+
+    pub fn write(_: impl AsRef<Path>, _: impl AsRef<[u8]>) -> io::Result<()> {
+        unsupported()
+    }
+}
 
 /// Built-in saved data entry names.
 pub mod names {
@@ -108,10 +131,13 @@ impl SavedDataManager {
     /// Creates saved-data storage rooted at `world_dir/data`.
     ///
     /// `None` means the world is ephemeral, matching Steel's RAM-only storage.
+    /// On wasm32 every world is ephemeral.
     #[must_use]
     pub fn new(world_dir: Option<&Path>) -> Self {
         Self {
-            data_dir: world_dir.map(|path| path.join("data")),
+            data_dir: world_dir
+                .filter(|_| !cfg!(target_arch = "wasm32"))
+                .map(|path| path.join("data")),
         }
     }
 
