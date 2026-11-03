@@ -90,7 +90,7 @@ use crate::{
     behavior::{BLOCK_BEHAVIORS, BlockCollisionContext, BlockLootContext, FLUID_BEHAVIORS},
     block_entity::{BlockEntity, SharedBlockEntity, entities::EndGatewayBlockEntity},
     chunk::{heightmap::HeightmapType, player_chunk_view::PlayerChunkView},
-    chunk_saver::{ChunkStorage, RamOnlyStorage, RegionManager},
+    chunk_saver::{ChunkStorage, RamOnlyStorage},
     entity::{
         AddEntityError, Entity, EntityChangeSenders, EntityChunkCallback, EntityLifecycleChanges,
         EntityMovementSyncPacket, EntityOwnership, EntityTracker, EntityVisibility,
@@ -106,6 +106,10 @@ use crate::{
     player::{LastSeen, Player, connection::NetworkConnection},
     poi::PointOfInterestStorage,
 };
+
+// Region files are native-only storage.
+#[cfg(not(target_arch = "wasm32"))]
+use crate::chunk_saver::RegionManager;
 
 mod block_entity_ticker;
 mod block_event;
