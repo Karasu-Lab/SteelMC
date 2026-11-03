@@ -60,9 +60,11 @@ use std::ptr;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Weak};
 use std::time::Duration;
+use steel_math::RAD_TO_DEG_F64;
 use steel_protocol::packets::game::{
-    CEntityEvent, CPlayerCombatKill, CPlayerLookAt, CRespawn, CSetDefaultSpawnPosition, CSetHealth,
-    CSetHeldSlot, CSetPassengers, ClientCommandAction, LookAtAnchor, RelativeMovement, SoundSource,
+    CEntityEvent, CHurtAnimation, CPlayerCombatKill, CPlayerLookAt, CRespawn,
+    CSetDefaultSpawnPosition, CSetHealth, CSetHeldSlot, CSetPassengers, ClientCommandAction,
+    LookAtAnchor, RelativeMovement, SoundSource,
 };
 use steel_protocol::packets::game::{CLevelEvent, CSetEntityData, CSetExperience};
 use steel_registry::blocks::block_state_ext::BlockStateExt as _;
@@ -1314,6 +1316,20 @@ impl Entity for Player {
         LivingEntity::base_tick_living_entity(self);
     }
 
+    fn do_water_splash_effect(&self) {
+        if !self.is_spectator() {
+            self.default_do_water_splash_effect();
+        }
+    }
+
+    fn swim_splash_sound(&self) -> SoundEventRef {
+        &sound_events::ENTITY_PLAYER_SPLASH
+    }
+
+    fn swim_high_speed_splash_sound(&self) -> SoundEventRef {
+        &sound_events::ENTITY_PLAYER_SPLASH_HIGH_SPEED
+    }
+
     fn scoreboard_name(&self) -> String {
         self.gameprofile.name().to_owned()
     }
@@ -1728,6 +1744,15 @@ impl LivingEntity for Player {
         Some(&self.entity_data)
     }
 
+    fn indicate_damage(&self, xd: f64, zd: f64) {
+        let (y_rot, _) = self.rotation();
+        let hurt_dir = zd.atan2(xd) * RAD_TO_DEG_F64 - f64::from(y_rot);
+        self.send_packet(CHurtAnimation {
+            entity_id: self.id(),
+            yaw: hurt_dir as f32,
+        });
+    }
+
     fn tick_living_entity(&self, entity: &SharedEntity) {
         self.advance_tick();
         self.tick_item_cooldowns();
@@ -1788,7 +1813,6 @@ impl LivingEntity for Player {
             self.tick_death();
         } else {
             let world = self.get_world();
-            self.touch_nearby_items();
             self.block_breaking.lock().tick(self, &world);
 
             self.update_player_attributes();
@@ -2019,9 +2043,7 @@ impl LivingEntity for Player {
             self.inventory.lock().set_changed();
         }
 
-        if let Some(sound) = self.equip_sound(slot, &equipped) {
-            self.play_sound(sound, 1.0, 1.0);
-        }
+        self.on_equip_item(slot, &ItemStack::empty(), &equipped);
         // TODO: Emit EQUIP game event once game-event dispatch is implemented.
         InteractionResult::Success
     }
@@ -2088,6 +2110,11 @@ impl LivingEntity for Player {
 
         let result = self.default_ai_step(entity);
         self.set_y_head_rot(self.rotation().0);
+        // Pickup uses the simulated position; `tick_living_entity` restores the
+        // authoritative tick position after this returns.
+        if self.get_health() > 0.0 {
+            self.touch_nearby_items();
+        }
         result
     }
 

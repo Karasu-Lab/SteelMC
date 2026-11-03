@@ -89,6 +89,10 @@ harness = false
 name = "legacy_random"
 harness = false
 
+[[bench]]
+name = "variable_integer"
+harness = false
+
 [lints]
 workspace = true
 
@@ -96,6 +100,8 @@ workspace = true
 fmt = ["dep:prettyplease", "dep:syn"]
 
 # OS-backed tokio features and the C zstd library, unavailable on wasm32.
+# This also covers upstream's `cfg(not(target_family = "wasm"))` tokio "fs"
+# dependency: "fs" is included here and wasm32 is the wasm target built.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true, features = ["net", "fs", "rt-multi-thread", "io-std", "signal"] }
 zstd.workspace = true

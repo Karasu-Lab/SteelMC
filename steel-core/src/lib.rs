@@ -21,6 +21,7 @@ pub mod entity;
 pub mod fluid;
 pub mod headless;
 pub mod inventory;
+pub(crate) mod java_block_pos_set;
 pub mod level_data;
 pub mod permission;
 pub mod physics;
