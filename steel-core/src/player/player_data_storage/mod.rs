@@ -1,5 +1,6 @@
 //! Player data storage for global and domain-scoped player state.
 
+#[cfg(not(target_arch = "wasm32"))]
 mod file_storage;
 mod known_players;
 mod memory_storage;
@@ -12,6 +13,7 @@ mod tests;
 use std::{io::Cursor, path::PathBuf};
 
 use simdnbt::{ToNbtTag, borrow::read_compound as read_borrowed_compound, owned::NbtTag};
+use steel_utils::compression;
 use tokio::io;
 use uuid::Uuid;
 use wincode::{SchemaRead, SchemaWrite};
@@ -31,6 +33,7 @@ use crate::permission::PermissionSubjectIndex;
 use crate::permission::PermissionSubjectState;
 use crate::player::KnownPlayers;
 use crate::player::Player;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::player::player_data_storage::file_storage::FilePlayerDataStorage;
 use crate::player::player_data_storage::memory_storage::MemoryPlayerDataStorage;
 use steel_registry::item_stack::ItemStack;
@@ -55,6 +58,7 @@ pub struct PlayerDataStorage {
 }
 
 enum PlayerDataStorageBackend {
+    #[cfg(not(target_arch = "wasm32"))]
     File(FilePlayerDataStorage),
     Memory(MemoryPlayerDataStorage),
 }
@@ -147,7 +151,13 @@ impl PlayerDataStorage {
         selection: &StorageSelection,
     ) -> io::Result<Self> {
         if selection.kind == Identifier::from_steel("disk") {
-            Self::on_disk(save_root).await
+            #[cfg(not(target_arch = "wasm32"))]
+            return Self::on_disk(save_root).await;
+            #[cfg(target_arch = "wasm32")]
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "disk player storage is unavailable on wasm32",
+            ));
         } else if selection.kind == Identifier::from_steel("ram") {
             Ok(Self::in_memory())
         } else {
@@ -159,6 +169,7 @@ impl PlayerDataStorage {
     }
 
     /// Creates player data storage backed by files under `save_root`.
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn on_disk(save_root: PathBuf) -> io::Result<Self> {
         let backend = PlayerDataStorageBackend::File(FilePlayerDataStorage::new(save_root).await?);
         Ok(Self { backend })
@@ -188,6 +199,7 @@ impl PlayerDataStorage {
     /// Saves a player's data for a specific domain.
     pub async fn save_domain(&self, domain: &str, player: &Player) -> io::Result<()> {
         match &self.backend {
+            #[cfg(not(target_arch = "wasm32"))]
             PlayerDataStorageBackend::File(storage) => storage.save_domain(domain, player).await,
             PlayerDataStorageBackend::Memory(storage) => {
                 storage.save_domain(domain, player);
@@ -204,6 +216,7 @@ impl PlayerDataStorage {
         data: &PersistentPlayerData,
     ) -> io::Result<()> {
         match &self.backend {
+            #[cfg(not(target_arch = "wasm32"))]
             PlayerDataStorageBackend::File(storage) => {
                 storage.save_domain_data(domain, uuid, data).await
             }
@@ -221,6 +234,7 @@ impl PlayerDataStorage {
         uuid: Uuid,
     ) -> io::Result<Option<PersistentPlayerData>> {
         match &self.backend {
+            #[cfg(not(target_arch = "wasm32"))]
             PlayerDataStorageBackend::File(storage) => storage.load_domain(domain, uuid).await,
             PlayerDataStorageBackend::Memory(storage) => Ok(storage.load_domain(domain, uuid)),
         }
@@ -229,6 +243,7 @@ impl PlayerDataStorage {
     /// Loads server-wide player data.
     pub async fn load_global(&self, uuid: Uuid) -> io::Result<Option<GlobalPlayerData>> {
         match &self.backend {
+            #[cfg(not(target_arch = "wasm32"))]
             PlayerDataStorageBackend::File(storage) => storage.load_global(uuid).await,
             PlayerDataStorageBackend::Memory(storage) => Ok(storage.load_global(uuid)),
         }
@@ -237,6 +252,7 @@ impl PlayerDataStorage {
     /// Loads all persisted player permission snapshots.
     pub async fn load_permission_subjects(&self) -> io::Result<PermissionSubjectIndex> {
         match &self.backend {
+            #[cfg(not(target_arch = "wasm32"))]
             PlayerDataStorageBackend::File(storage) => storage.load_permission_subjects().await,
             PlayerDataStorageBackend::Memory(storage) => Ok(storage.load_permission_subjects()),
         }
@@ -245,6 +261,7 @@ impl PlayerDataStorage {
     /// Loads the rebuildable player identity cache, falling back to empty on failure.
     pub async fn load_known_players(&self) -> io::Result<KnownPlayers> {
         match &self.backend {
+            #[cfg(not(target_arch = "wasm32"))]
             PlayerDataStorageBackend::File(storage) => storage.load_known_players().await,
             PlayerDataStorageBackend::Memory(storage) => Ok(storage.load_known_players()),
         }
@@ -257,6 +274,7 @@ impl PlayerDataStorage {
         is_current: impl FnOnce() -> bool + Send,
     ) -> io::Result<bool> {
         match &self.backend {
+            #[cfg(not(target_arch = "wasm32"))]
             PlayerDataStorageBackend::File(storage) => {
                 storage
                     .save_known_players_if_current(players, is_current)
@@ -271,6 +289,7 @@ impl PlayerDataStorage {
     /// Saves server-wide player data.
     pub async fn save_global(&self, uuid: Uuid, data: &GlobalPlayerData) -> io::Result<()> {
         match &self.backend {
+            #[cfg(not(target_arch = "wasm32"))]
             PlayerDataStorageBackend::File(storage) => storage.save_global(uuid, data).await,
             PlayerDataStorageBackend::Memory(storage) => {
                 storage.save_global(uuid, data);
@@ -285,6 +304,7 @@ impl PlayerDataStorage {
         subjects: &PermissionSubjectIndex,
     ) -> io::Result<()> {
         match &self.backend {
+            #[cfg(not(target_arch = "wasm32"))]
             PlayerDataStorageBackend::File(storage) => {
                 storage.save_permission_subjects(subjects).await
             }
@@ -547,7 +567,7 @@ fn encode_file(
 ) -> io::Result<Vec<u8>> {
     let payload =
         serialized.map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-    let compressed = zstd::encode_all(&payload[..], 3)?;
+    let compressed = compression::encode_all(&payload[..], 3)?;
     let mut bytes = Vec::with_capacity(6 + compressed.len());
     bytes.extend_from_slice(&magic);
     bytes.extend_from_slice(&version.to_le_bytes());
@@ -579,5 +599,5 @@ fn decode_file(
             format!("unsupported player data storage version {version}"),
         ));
     }
-    zstd::decode_all(&bytes[6..])
+    compression::decode_all(&bytes[6..])
 }

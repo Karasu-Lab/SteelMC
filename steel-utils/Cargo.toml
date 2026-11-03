@@ -46,6 +46,15 @@ text_components.workspace = true
 toml.workspace = true
 unicode_names2.workspace = true
 
+# Select the browser entropy source for every getrandom major in the graph.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom-02 = { package = "getrandom", version = "0.2.17", features = ["js"] }
+getrandom-03 = { package = "getrandom", version = "0.3.4", features = ["wasm_js"] }
+getrandom-04 = { package = "getrandom", version = "0.4.3", features = ["wasm_js"] }
+uuid = { workspace = true, features = ["rng-getrandom"] }
+# Pure Rust zstd for the wasm32 build, where the C library cannot be built.
+ruzstd = "0.8"
+
 [dev-dependencies]
 criterion.workspace = true
 md5.workspace = true
@@ -90,5 +99,9 @@ workspace = true
 [features]
 fmt = ["dep:prettyplease", "dep:syn"]
 
-[target.'cfg(not(target_family = "wasm"))'.dependencies]
-tokio = { workspace = true, features = ["fs"] }
+# OS-backed tokio features and the C zstd library, unavailable on wasm32.
+# This also covers upstream's `cfg(not(target_family = "wasm"))` tokio "fs"
+# dependency: "fs" is included here and wasm32 is the wasm target built.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["net", "fs", "rt-multi-thread", "io-std", "signal"] }
+zstd.workspace = true

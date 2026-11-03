@@ -2,8 +2,8 @@ use std::{
     cmp::Ordering as CmpOrdering,
     io::{self, Cursor},
     sync::{Arc, Weak, atomic::Ordering},
-    time::{SystemTime, UNIX_EPOCH},
 };
+use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::block_entity::{BLOCK_ENTITIES, SharedBlockEntity};
 use crate::chunk::full_chunk::FullChunkRef;
@@ -361,6 +361,7 @@ enum EntityPersistenceMode {
 }
 
 use super::ram_only::RamOnlyStorage;
+#[cfg(not(target_arch = "wasm32"))]
 use super::region_manager::RegionManager;
 use super::{
     PersistentBiomeData, PersistentBlockEntity, PersistentBlockState, PersistentBoundingBox,
@@ -446,7 +447,8 @@ impl<'a> ChunkBuilder<'a> {
 /// or in-memory (for testing/minigames).
 /// TODO: make it possible to give plugins the option to load a custom backend
 pub enum ChunkStorage {
-    /// Disk-based storage using region files.
+    /// Disk-based storage using region files. Absent on wasm32, which has no filesystem.
+    #[cfg(not(target_arch = "wasm32"))]
     Disk(RegionManager),
     /// In-memory storage for testing and minigames.
     RamOnly(RamOnlyStorage),
@@ -477,6 +479,7 @@ impl ChunkStorage {
         thread_pool: &rayon::ThreadPool,
     ) -> io::Result<Option<LoadedChunk>> {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Disk(rm) => rm.load_chunk(pos, min_y, height, level, thread_pool).await,
             Self::RamOnly(ram) => ram.load_chunk(pos, min_y, height, level).await,
         }
@@ -491,6 +494,7 @@ impl ChunkStorage {
         thread_pool: &rayon::ThreadPool,
     ) -> io::Result<bool> {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Disk(rm) => rm.save_chunk_data(prepared, thread_pool).await,
             Self::RamOnly(ram) => ram.save_chunk_data(prepared).await,
         }
@@ -499,6 +503,7 @@ impl ChunkStorage {
     /// Checks if a chunk exists in storage.
     pub async fn chunk_exists(&self, pos: ChunkPos) -> io::Result<bool> {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Disk(rm) => rm.chunk_exists(pos).await,
             Self::RamOnly(ram) => ram.chunk_exists(pos).await,
         }
@@ -510,6 +515,7 @@ impl ChunkStorage {
     /// whether the chunk exists. For RAM storage, this just checks existence.
     pub async fn acquire_chunk(&self, pos: ChunkPos) -> io::Result<bool> {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Disk(rm) => rm.acquire_chunk(pos).await,
             Self::RamOnly(ram) => ram.chunk_exists(pos).await,
         }
@@ -518,6 +524,7 @@ impl ChunkStorage {
     /// Releases a loaded chunk, allowing the storage to clean up resources.
     pub async fn release_chunk(&self, pos: ChunkPos) -> io::Result<()> {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Disk(rm) => rm.release_chunk(pos).await,
             Self::RamOnly(_) => Ok(()), // No-op for RAM storage
         }
@@ -526,6 +533,7 @@ impl ChunkStorage {
     /// Flushes all dirty data to storage.
     pub async fn flush_all(&self) -> io::Result<()> {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Disk(rm) => rm.flush_all().await,
             Self::RamOnly(_) => Ok(()), // No-op for RAM storage
         }
@@ -534,6 +542,7 @@ impl ChunkStorage {
     /// Closes all storage handles and flushes pending data.
     pub async fn close_all(&self) -> io::Result<()> {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Disk(rm) => rm.close_all().await,
             Self::RamOnly(_) => Ok(()), // No-op for RAM storage
         }

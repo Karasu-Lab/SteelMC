@@ -7,7 +7,7 @@ use std::{
         Arc, Weak,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
 use steel_protocol::packet_traits::EncodedPacket;
 use steel_protocol::packets::game::{
@@ -26,6 +26,7 @@ use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 use tracing::instrument;
+use web_time::Instant;
 
 use crate::behavior::{BLOCK_BEHAVIORS, FLUID_BEHAVIORS};
 use crate::block_entity::{BlockEntityLifecycleExt as _, ClearedBlockEntities, SharedBlockEntity};
@@ -495,9 +496,24 @@ impl ChunkMap {
     #[doc(hidden)]
     #[cfg(feature = "benchmark-support")]
     pub fn insert_benchmark_chunk_holder(&self, pos: ChunkPos, holder: Arc<ChunkHolder>) {
+        self.insert_detached_chunk_holder(pos, holder);
+    }
+
+    /// Inserts a non-simulated holder into a map that never ticks, which is how
+    /// [`crate::headless::HeadlessWorld`] generates chunks without a server loop.
+    ///
+    /// # Panics
+    /// Panics if the holder is simulated or the map already has ticking chunks.
+    pub fn insert_detached_chunk_holder(&self, pos: ChunkPos, holder: Arc<ChunkHolder>) {
         assert!(holder.simulation_level().is_none());
         assert!(self.ticking_chunks.load().block.is_empty());
         let _ = self.chunks.insert_sync(pos, holder);
+    }
+
+    /// The holder already tracked for `pos`, if any.
+    #[must_use]
+    pub fn tracked_chunk_holder(&self, pos: ChunkPos) -> Option<Arc<ChunkHolder>> {
+        self.chunks.read_sync(&pos, |_, holder| Arc::clone(holder))
     }
 
     #[inline]

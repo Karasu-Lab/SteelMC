@@ -1,5 +1,8 @@
 # Build/Generated
 /target
+/vendor/*/target
+/vendor/*/.cargo-ok
+/vendor/*/Cargo.toml.orig
 /steel-registry/src/generated
 /steel-utils/src/generated
 /steel-core/src/behavior/generated

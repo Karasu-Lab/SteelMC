@@ -1,7 +1,7 @@
 //! Global registry and behavior initialization.
 
 use std::sync::Once;
-use std::time::Instant;
+use web_time::Instant;
 
 use steel_registry::init_vanilla_registry;
 

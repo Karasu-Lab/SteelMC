@@ -3,10 +3,10 @@ use super::super::prelude::*;
 use super::super::runner::FeatureDecorationRunner;
 use smallvec::SmallVec;
 use std::f32::consts::PI;
-use std::time::Instant;
 use steel_math::trig;
 use steel_utils::PackedSectionBlockPos;
 use steel_worldgen::state_resolver::WorldgenStateResolver;
+use web_time::Instant;
 
 impl FeatureDecorationRunner {
     pub(in crate::worldgen::feature) fn place_ore_feature(

@@ -29,7 +29,7 @@
 //! spanning u64 boundaries.
 
 use glam::IVec3;
-use steel_utils::{BoundingBox, Identifier, PackedChunkPos};
+use steel_utils::{BoundingBox, ChunkPos, Identifier, PackedChunkPos};
 use wincode::{SchemaRead, SchemaWrite};
 
 use crate::chunk::status::ChunkStatus;
@@ -354,6 +354,19 @@ impl PersistentLightSection {
             | Self::Internal { section_index, .. } => *section_index,
         }
     }
+}
+
+/// Prepared chunk data ready to be saved asynchronously.
+/// Created by `prepare_chunk_save` during the holder's snapshot-preparation phase.
+pub struct PreparedChunkSave {
+    /// The chunk position.
+    pub pos: ChunkPos,
+    /// The highest persisted status captured with the chunk data.
+    pub status: ChunkStatus,
+    /// The serialized chunk data.
+    pub persistent: PersistentChunk<'static>,
+    /// Runtime manager entity IDs that were either serialized or explicitly skipped.
+    pub handled_runtime_entity_ids: Vec<i32>,
 }
 
 /// A persistent chunk containing sections and metadata.

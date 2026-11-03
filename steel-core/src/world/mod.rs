@@ -9,6 +9,7 @@ use std::{
     },
     time::Duration,
 };
+use web_time::Instant;
 
 use crate::chunk::chunk_ticket_storage::ChunkTicketStorage;
 use crate::chunk::full_chunk::{FullChunkBlockSetResult, FullChunkRef};
@@ -82,7 +83,7 @@ use steel_utils::{
     WorldAabb,
     types::{Difficulty, GameType, UpdateFlags},
 };
-use tokio::{runtime::Runtime, time::Instant};
+use tokio::runtime::Runtime;
 
 use crate::{
     ChunkMap,
@@ -353,6 +354,10 @@ impl World {
         .await
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "world construction wiring reads better kept in one place"
+    )]
     pub(crate) async fn new_with_config_and_encoding_pool(
         chunk_runtime: Arc<Runtime>,
         key: Identifier,
@@ -371,8 +376,16 @@ impl World {
         let default_gamemode = config.default_gamemode;
         // Create storage backend based on config
         let storage: Arc<ChunkStorage> = match &config.storage {
+            #[cfg(not(target_arch = "wasm32"))]
             WorldStorageConfig::Disk { path } => {
                 Arc::new(ChunkStorage::Disk(RegionManager::new(path.clone())))
+            }
+            #[cfg(target_arch = "wasm32")]
+            WorldStorageConfig::Disk { .. } => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "disk world storage is unavailable on wasm32",
+                ));
             }
             WorldStorageConfig::RamOnly => {
                 Arc::new(ChunkStorage::RamOnly(RamOnlyStorage::empty_world()))

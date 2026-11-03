@@ -49,7 +49,8 @@ use movement::{MovementState, TeleportState};
 use permissions::PlayerPermissionState;
 pub(crate) use profile::{GAME_PROFILE_CACHE_LIMIT, KnownPlayerNameLookup, lookup_online_profile};
 pub use profile::{
-    GameProfile, KnownPlayer, KnownPlayers, ProfileLookupError, is_valid_player_name, offline_uuid,
+    GameProfile, KnownPlayer, KnownPlayers, ProfileLookupClient, ProfileLookupError,
+    is_valid_player_name, offline_uuid,
 };
 pub use session::PlayerSession;
 pub(crate) use session::PlayerSessionId;
@@ -58,7 +59,7 @@ use sleep_state::PlayerSleepState;
 use std::ptr;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Weak};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use steel_math::RAD_TO_DEG_F64;
 use steel_protocol::packets::game::{
     CEntityEvent, CHurtAnimation, CPlayerCombatKill, CPlayerLookAt, CRespawn,
@@ -84,6 +85,7 @@ use steel_registry::{
 use steel_utils::{entity_events::EntityStatus, locks::Shared, translations};
 use tick_state::PlayerTickState;
 use uuid::Uuid;
+use web_time::Instant;
 
 use arc_swap::ArcSwap;
 use steel_utils::locks::SyncMutex;

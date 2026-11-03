@@ -6,6 +6,8 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# std::time::Instant and SystemTime panic on wasm32-unknown-unknown.
+web-time = { version = "1", features = ["serde"] }
 # Internal crates
 steel-math.workspace = true
 steel-macros.workspace = true
@@ -13,7 +15,7 @@ steel-registry.workspace = true
 steel-utils.workspace = true
 
 # Async runtime
-tokio = { workspace = true, features = ["net", "rt-multi-thread", "io-std", "fs", "signal"] }
+tokio.workspace = true
 
 # Serialization
 serde.workspace = true
@@ -46,3 +48,7 @@ text_components.workspace = true
 
 [lints]
 workspace = true
+
+# OS-backed tokio features, unavailable on wasm32.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["net", "fs", "rt-multi-thread", "io-std", "signal"] }

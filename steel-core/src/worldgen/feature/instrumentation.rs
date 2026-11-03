@@ -5,8 +5,9 @@ use std::{
         LazyLock,
         atomic::{AtomicU64, Ordering},
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
+use web_time::Instant;
 
 use rustc_hash::FxHashSet;
 

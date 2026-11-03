@@ -7,8 +7,8 @@
 use std::{
     cell::RefCell,
     sync::{Arc, Weak},
-    time::Instant,
 };
+use web_time::Instant;
 
 use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
 use simdnbt::owned::NbtCompound;

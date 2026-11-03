@@ -14,6 +14,8 @@ test-framework = []
 benchmark-support = []
 
 [dependencies]
+# std::time::Instant and SystemTime panic on wasm32-unknown-unknown.
+web-time = { version = "1", features = ["serde"] }
 # Internal crates
 steel-crypto.workspace = true
 steel-macros.workspace = true
@@ -24,7 +26,7 @@ steel-worldgen.workspace = true
 steel-math.workspace = true
 
 # Async runtime
-tokio = { workspace = true, features = ["net", "rt-multi-thread", "io-std", "fs", "signal"] }
+tokio.workspace = true
 tokio-util.workspace = true
 futures.workspace = true
 
@@ -57,7 +59,6 @@ chrono.workspace = true
 uuid.workspace = true
 
 # Networking
-reqwest.workspace = true
 
 # Logging
 log.workspace = true
@@ -69,7 +70,6 @@ sha2.workspace = true
 md5.workspace = true
 
 # Compression
-zstd.workspace = true
 flate2.workspace = true
 
 # Utilities
@@ -109,3 +109,9 @@ required-features = ["benchmark-support"]
 
 [lints]
 workspace = true
+
+# OS-backed tokio features, unavailable on wasm32.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["net", "fs", "rt-multi-thread", "io-std", "signal"] }
+reqwest.workspace = true
+zstd.workspace = true

@@ -3,7 +3,8 @@
 use std::collections::VecDeque;
 use std::env;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use web_time::Instant;
 
 use steel_utils::{ChunkPos, SectionPos};
 use tokio::time::sleep;

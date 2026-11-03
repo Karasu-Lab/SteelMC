@@ -1,6 +1,7 @@
 //! Structure location command.
 
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
+use web_time::Instant;
 
 use steel_utils::{BlockPos, Identifier, translations};
 use text_components::{

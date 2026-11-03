@@ -12,11 +12,13 @@ pub mod climate;
 pub mod codec;
 /// Packed RGB and ARGB colors.
 pub mod color;
+pub mod compression;
 /// Direction enum for the six cardinal directions.
 pub mod direction;
 /// Deterministic concrete-type downcasting for erased Steel objects.
 pub mod downcast;
 mod front_vec;
+pub mod fs;
 /// Shared geometry primitives.
 pub mod geometry;
 /// CRC32C hashing for component validation.

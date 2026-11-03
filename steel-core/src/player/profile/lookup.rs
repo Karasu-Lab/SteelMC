@@ -15,6 +15,9 @@ const PROFILE_LOOKUP_RETRY_DELAY: Duration = Duration::from_millis(750);
 /// Bounds every attempt so suspended administrative commands always release their ordering barrier.
 const PROFILE_LOOKUP_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// HTTP client used for profile lookups.
+pub type ProfileLookupClient = reqwest::Client;
+
 /// Failure while resolving a player identity through the configured profile service.
 #[derive(Debug, Error)]
 pub enum ProfileLookupError {

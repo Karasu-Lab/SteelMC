@@ -33,11 +33,13 @@
 mod bit_pack;
 mod format;
 mod ram_only;
+#[cfg(not(target_arch = "wasm32"))]
 mod region_manager;
 pub mod registry;
 mod storage;
 
 pub use format::*;
 pub use ram_only::*;
+#[cfg(not(target_arch = "wasm32"))]
 pub use region_manager::*;
 pub use storage::*;

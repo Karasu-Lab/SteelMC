@@ -6,15 +6,36 @@
 
 use std::{
     fmt::Display,
-    fs as sync_fs, io,
+    io,
     path::{Path, PathBuf},
 };
 
-#[cfg(not(target_family = "wasm"))]
+use crate::fs;
 use serde::{Serialize, de::DeserializeOwned};
-#[cfg(not(target_family = "wasm"))]
-use tokio::fs;
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs as sync_fs;
 use wincode::{SchemaRead, SchemaWrite, config::DefaultConfig};
+
+#[cfg(target_arch = "wasm32")]
+mod sync_fs {
+    use std::{io, path::Path};
+
+    fn unsupported<T>() -> io::Result<T> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
+
+    pub fn read(_: impl AsRef<Path>) -> io::Result<Vec<u8>> {
+        unsupported()
+    }
+
+    pub fn create_dir_all(_: impl AsRef<Path>) -> io::Result<()> {
+        unsupported()
+    }
+
+    pub fn write(_: impl AsRef<Path>, _: impl AsRef<[u8]>) -> io::Result<()> {
+        unsupported()
+    }
+}
 
 /// Built-in saved data entry names.
 pub mod names {
@@ -51,7 +72,6 @@ impl SavedDataName {
         }
     }
 
-    #[cfg(not(target_family = "wasm"))]
     fn file_name(self) -> String {
         format!("{}.toml", self.0)
     }
@@ -111,10 +131,13 @@ impl SavedDataManager {
     /// Creates saved-data storage rooted at `world_dir/data`.
     ///
     /// `None` means the world is ephemeral, matching Steel's RAM-only storage.
+    /// On wasm32 every world is ephemeral.
     #[must_use]
     pub fn new(world_dir: Option<&Path>) -> Self {
         Self {
-            data_dir: world_dir.map(|path| path.join("data")),
+            data_dir: world_dir
+                .filter(|_| !cfg!(target_arch = "wasm32"))
+                .map(|path| path.join("data")),
         }
     }
 
@@ -163,7 +186,6 @@ impl SavedDataManager {
 
     /// Loads saved data, or returns `T::default()` when the data file is absent
     /// or this world has no persistent storage.
-    #[cfg(not(target_family = "wasm"))]
     pub async fn load_or_default<T>(&self, name: SavedDataName) -> io::Result<T>
     where
         T: DeserializeOwned + Default,
@@ -206,7 +228,6 @@ impl SavedDataManager {
     }
 
     /// Saves a typed saved-data value.
-    #[cfg(not(target_family = "wasm"))]
     pub async fn save<T>(&self, name: SavedDataName, data: &T) -> io::Result<()>
     where
         T: Serialize,
@@ -223,7 +244,6 @@ impl SavedDataManager {
         fs::write(path, content).await
     }
 
-    #[cfg(not(target_family = "wasm"))]
     fn path_for(&self, name: SavedDataName) -> Option<PathBuf> {
         self.data_dir
             .as_ref()

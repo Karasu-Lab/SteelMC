@@ -1,7 +1,5 @@
-use std::{
-    io::Cursor,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::io::Cursor;
+use web_time::{SystemTime, UNIX_EPOCH};
 
 use steel_macros::ServerPacket;
 use steel_utils::codec::VarInt;
