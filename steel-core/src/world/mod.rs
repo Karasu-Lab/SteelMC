@@ -1,4 +1,3 @@
-
 use std::{
     io, mem,
     path::Path,
@@ -318,7 +317,6 @@ impl World {
                 Arc::new(ChunkStorage::RamOnly(RamOnlyStorage::empty_world()))
             }
         };
-
 
         let path = config.level_data_path.as_deref().map(Path::new);
         let saved_data = SavedDataManager::new(path);
