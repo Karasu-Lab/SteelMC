@@ -69,4 +69,4 @@ on a worker, never the browser's main thread.
   above.
 
 Generation is deterministic for a seed: `HeadlessWorld` runs each stage one
-chunk at a time in a fixed order (see `steel-core/tests/headless.rs`).
+chunk at a time in a fixed order.

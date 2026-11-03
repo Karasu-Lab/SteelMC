@@ -4,10 +4,10 @@
 //! with [`io::ErrorKind::Unsupported`] and are never reached with a real path.
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use tokio::fs::{create_dir_all, read_to_string, write};
+pub use tokio::fs::{create_dir_all, read_to_string, remove_dir_all, write};
 
 #[cfg(target_arch = "wasm32")]
-pub use unsupported::{create_dir_all, read_to_string, write};
+pub use unsupported::{create_dir_all, read_to_string, remove_dir_all, write};
 
 #[cfg(target_arch = "wasm32")]
 mod unsupported {
@@ -22,6 +22,10 @@ mod unsupported {
     }
 
     pub async fn create_dir_all(_: impl AsRef<Path>) -> io::Result<()> {
+        unsupported()
+    }
+
+    pub async fn remove_dir_all(_: impl AsRef<Path>) -> io::Result<()> {
         unsupported()
     }
 
