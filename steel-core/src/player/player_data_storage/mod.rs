@@ -13,6 +13,7 @@ mod tests;
 use std::{io::Cursor, path::PathBuf};
 
 use simdnbt::{ToNbtTag, borrow::read_compound as read_borrowed_compound, owned::NbtTag};
+use steel_utils::compression;
 use tokio::io;
 use uuid::Uuid;
 use wincode::{SchemaRead, SchemaWrite};
@@ -566,7 +567,7 @@ fn encode_file(
 ) -> io::Result<Vec<u8>> {
     let payload =
         serialized.map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-    let compressed = steel_utils::compression::encode_all(&payload[..], 3)?;
+    let compressed = compression::encode_all(&payload[..], 3)?;
     let mut bytes = Vec::with_capacity(6 + compressed.len());
     bytes.extend_from_slice(&magic);
     bytes.extend_from_slice(&version.to_le_bytes());
@@ -598,5 +599,5 @@ fn decode_file(
             format!("unsupported player data storage version {version}"),
         ));
     }
-    steel_utils::compression::decode_all(&bytes[6..])
+    compression::decode_all(&bytes[6..])
 }

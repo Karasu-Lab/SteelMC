@@ -90,7 +90,7 @@ use crate::{
     behavior::{BLOCK_BEHAVIORS, BlockCollisionContext, BlockLootContext, FLUID_BEHAVIORS},
     block_entity::{BlockEntity, SharedBlockEntity, entities::EndGatewayBlockEntity},
     chunk::{heightmap::HeightmapType, player_chunk_view::PlayerChunkView},
-    chunk_saver::{ChunkStorage, RamOnlyStorage},
+    chunk_saver::{ChunkStorage, RamOnlyStorage, RegionManager},
     entity::{
         AddEntityError, Entity, EntityChangeSenders, EntityChunkCallback, EntityLifecycleChanges,
         EntityMovementSyncPacket, EntityOwnership, EntityTracker, EntityVisibility,
@@ -354,6 +354,10 @@ impl World {
         .await
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "world construction wiring reads better kept in one place"
+    )]
     pub(crate) async fn new_with_config_and_encoding_pool(
         chunk_runtime: Arc<Runtime>,
         key: Identifier,
@@ -373,9 +377,9 @@ impl World {
         // Create storage backend based on config
         let storage: Arc<ChunkStorage> = match &config.storage {
             #[cfg(not(target_arch = "wasm32"))]
-            WorldStorageConfig::Disk { path } => Arc::new(ChunkStorage::Disk(
-                crate::chunk_saver::RegionManager::new(path.clone()),
-            )),
+            WorldStorageConfig::Disk { path } => {
+                Arc::new(ChunkStorage::Disk(RegionManager::new(path.clone())))
+            }
             #[cfg(target_arch = "wasm32")]
             WorldStorageConfig::Disk { .. } => {
                 return Err(io::Error::new(

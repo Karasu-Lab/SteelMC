@@ -110,7 +110,7 @@ use steel_utils::{
     BlockPos, ChunkPos, Identifier,
     locks::{AsyncMutex, SyncMutex, SyncRwLock},
     text::DisplayResolutor,
-    threading::{DEBUG_STACK_SIZE, available_worker_threads},
+    threading::{self, DEBUG_STACK_SIZE, available_worker_threads},
     translations,
 };
 use text_components::{Modifier, TextComponent, format::Color};
@@ -683,7 +683,7 @@ impl Server {
             if cfg!(debug_assertions) {
                 builder = builder.stack_size(DEBUG_STACK_SIZE);
             }
-            steel_utils::threading::build_thread_pool(builder)
+            threading::build_thread_pool(builder)
                 .map_err(|e| format!("failed to create generation thread pool: {e}"))?
         });
         let chunk_encoding_pool = Arc::new({
@@ -694,7 +694,7 @@ impl Server {
             {
                 builder = builder.num_threads(chunk_encoding_threads);
             }
-            steel_utils::threading::build_thread_pool(builder)
+            threading::build_thread_pool(builder)
                 .map_err(|e| format!("failed to create chunk encoding thread pool: {e}"))?
         });
 

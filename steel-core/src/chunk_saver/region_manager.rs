@@ -12,7 +12,7 @@ use std::{
 };
 
 use rustc_hash::FxHashMap;
-use steel_utils::{ChunkPos, locks::AsyncRwLock};
+use steel_utils::{ChunkPos, compression, locks::AsyncRwLock};
 use tokio::{
     fs::{self, File, OpenOptions},
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
@@ -397,7 +397,7 @@ impl RegionManager {
     fn encode_chunk(prepared: PreparedChunkSave) -> io::Result<Vec<u8>> {
         let data = wincode::serialize(&prepared.persistent)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-        let compressed = steel_utils::compression::encode_all(&data[..], 3)?;
+        let compressed = compression::encode_all(&data[..], 3)?;
 
         if compressed.len() > MAX_CHUNK_SIZE {
             return Err(io::Error::new(
@@ -520,7 +520,7 @@ impl RegionManager {
         height: i32,
         level: Weak<World>,
     ) -> Result<LoadedChunk, CorruptChunkData> {
-        let data = steel_utils::compression::decode_all(&compressed[..])
+        let data = compression::decode_all(&compressed[..])
             .map_err(|error| CorruptChunkData(format!("zstd decode failed: {error}")))?;
         let persistent: PersistentChunk<'_> = wincode::deserialize(&data)
             .map_err(|error| CorruptChunkData(format!("chunk decode failed: {error}")))?;

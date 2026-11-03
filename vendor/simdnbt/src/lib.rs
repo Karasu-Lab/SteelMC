@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![feature(portable_simd)]
+#![allow(stable_features)]
 #![feature(allocator_api)]
 
 pub mod borrow;

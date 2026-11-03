@@ -12,8 +12,9 @@ use steel_protocol::packets::game::CLevelChunkWithLight;
 use steel_registry::dimension_type::DimensionType;
 use steel_utils::serial::WriteTo;
 use steel_utils::types::{Difficulty, GameType};
-use steel_utils::{BlockPos, BlockStateId, ChunkPos, Identifier};
+use steel_utils::{BlockPos, BlockStateId, ChunkPos, Identifier, threading};
 use tokio::runtime::{Builder as RuntimeBuilder, Runtime};
+use toml::map::Map;
 
 use crate::bootstrap::init_globals;
 use crate::chunk::chunk_generation_task::StaticCache2D;
@@ -76,15 +77,14 @@ impl HeadlessWorld {
                 builder = builder.num_threads(threads);
             }
             if cfg!(debug_assertions) {
-                builder = builder.stack_size(steel_utils::threading::DEBUG_STACK_SIZE);
+                builder = builder.stack_size(threading::DEBUG_STACK_SIZE);
             }
-            steel_utils::threading::build_thread_pool(builder)
+            threading::build_thread_pool(builder)
                 .map_err(|error| format!("failed to build the generation pool: {error}"))?
         });
 
         let registry = WorldGeneratorRegistry::new_with_builtins()?;
-        let config =
-            registry.validate_config(generator_key, &toml::Value::Table(toml::map::Map::new()))?;
+        let config = registry.validate_config(generator_key, &toml::Value::Table(Map::new()))?;
         let output = registry.create(None, &config, seed, Arc::clone(&generation_pool))?;
         let dimension = output.dimension_type;
         let generator = Arc::new(output.generator);
@@ -151,7 +151,7 @@ impl HeadlessWorld {
         self.dimension.has_skylight
     }
 
-    /// Generates `pos` (and the neighbours the pipeline needs) up to `Full`.
+    /// Generates `pos` (and the neighbors the pipeline needs) up to `Full`.
     ///
     /// Blocks until done; call it from a worker, never a UI thread.
     ///
@@ -179,7 +179,7 @@ impl HeadlessWorld {
                 .collect();
 
             // One holder at a time, in a fixed order: a stage such as `Features`
-            // writes into its neighbours, which the server's scheduler keeps
+            // writes into its neighbors, which the server's scheduler keeps
             // apart, and running them together would make the result depend on
             // timing.
             let completed = self.runtime.block_on(async {
