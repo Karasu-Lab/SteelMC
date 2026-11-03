@@ -1,4 +1,3 @@
-//! This module contains the `World` struct, which represents a world.
 
 use std::{
     io, mem,
@@ -85,12 +84,14 @@ use steel_utils::{
 };
 use tokio::runtime::Runtime;
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::chunk_saver::RegionManager;
 use crate::{
     ChunkMap,
     behavior::{BLOCK_BEHAVIORS, BlockCollisionContext, BlockLootContext, FLUID_BEHAVIORS},
     block_entity::{BlockEntity, SharedBlockEntity, entities::EndGatewayBlockEntity},
     chunk::{heightmap::HeightmapType, player_chunk_view::PlayerChunkView},
-    chunk_saver::{ChunkStorage, RamOnlyStorage, RegionManager},
+    chunk_saver::{ChunkStorage, RamOnlyStorage},
     entity::{
         AddEntityError, Entity, EntityChangeSenders, EntityChunkCallback, EntityLifecycleChanges,
         EntityMovementSyncPacket, EntityOwnership, EntityTracker, EntityVisibility,
@@ -119,7 +120,6 @@ mod entity_management;
 mod environment;
 mod events;
 pub mod explosion;
-/// Vanilla game-event contexts, listeners, and dispatch storage.
 pub mod game_event;
 mod level_effects;
 mod level_reader;
@@ -187,152 +187,80 @@ const fn initialize_border_packet(snapshot: WorldBorderSnapshot) -> CInitializeB
     }
 }
 
-/// Timing information for a world game tick.
 #[derive(Debug)]
 pub struct WorldGameTickTimings {
-    /// Total time for this world's tick.
     pub elapsed: Duration,
-    /// Chunk map game tick timings.
     pub chunk_map: ChunkMapGameTickTimings,
-    /// Time spent ticking entities.
     pub entity_tick: Duration,
 }
 
-/// Result of replacing a block only when its current state still matches a prior read.
 #[must_use]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ConditionalBlockSetResult {
-    /// The expected state was claimed and replaced.
     Changed,
-    /// The expected state already equals the requested state, so no callbacks ran.
     Unchanged,
-    /// The current state did not match the caller's expected state.
     Stale(BlockStateId),
-    /// The position is invalid, the chunk is unavailable, or the update limit was exhausted.
     Unavailable,
 }
 
-/// Configuration for creating a new world.
 #[derive(Clone)]
 pub struct WorldConfig {
-    /// Server-owned history; the caller retains it while the world runs.
     pub damage_history: Arc<DamageHistory>,
-    /// Domain game-time authority, bound during construction.
     pub game_time_source: GameTimeSource,
-    /// Storage configuration for chunk persistence.
     pub storage: WorldStorageConfig,
-    /// Directory for level data. `None` means level data is ephemeral.
     pub level_data_path: Option<String>,
-    /// World generator.
     pub generator: Arc<ChunkGeneratorType>,
-    /// Generator metadata persisted for startup compatibility checks.
     pub generation_settings: WorldGenerationSettings,
-    /// Server view distance (maximum chunk radius).
     pub view_distance: u8,
-    /// Server simulation distance.
     pub simulation_distance: u8,
-    /// Maximum queued neighbor-update tasks in one chained run; negative means unlimited.
     pub max_chained_neighbor_updates: i32,
-    /// Compression settings for encoding broadcast packets.
     pub compression: Option<CompressionInfo>,
-    /// Whether the world should be marked as flat in login/respawn packets.
     pub is_flat: bool,
-    /// Sea level sent in login/respawn packets.
     pub sea_level: i32,
-    /// Default game mode for first-visit player data.
     pub default_gamemode: GameType,
-    /// Difficulty used when creating new level data.
     pub difficulty: Difficulty,
 }
 
-/// A struct that represents a world.
 pub struct World {
     pub(crate) damage_history: Weak<DamageHistory>,
-    /// The chunk map of the world.
     pub chunk_map: Arc<ChunkMap>,
-    /// All players in the world with dual indexing by UUID and entity ID.
     pub players: PlayerMap,
-    /// Spatial index for player proximity queries.
     pub player_area_map: PlayerAreaMap,
-    /// Loaded world identifier (`domain:world`).
     pub key: Identifier,
-    /// Vanilla dimension type for this loaded world.
-    ///
-    /// Vanilla often calls loaded worlds "dimensions". In Steel, `World` is the
-    /// loaded world instance and `dimension_type` is the vanilla registry entry
-    /// controlling height, skylight, ceiling, water evaporation, etc.
     pub dimension_type: DimensionTypeRef,
-    /// Level data manager for persistent world state.
     pub level_data: SyncRwLock<LevelDataManager>,
     pub(crate) game_time: Arc<GameTime>,
-    /// Per-world saved data storage.
     pub(crate) saved_data: SavedDataManager,
-    /// Runtime world border state.
     world_border: SyncMutex<WorldBorder>,
-    /// Vanilla sleeping player counts for night-skip checks.
     sleep_status: SyncMutex<sleep_status::SleepStatus>,
-    /// Server view distance (maximum chunk radius).
     pub view_distance: u8,
-    /// Server simulation distance.
     pub simulation_distance: u8,
-    /// Compression settings for encoding broadcast packets.
     pub compression: Option<CompressionInfo>,
-    /// Whether the world should be marked as flat in login/respawn packets.
     pub is_flat: bool,
-    /// Sea level sent in login/respawn packets.
     pub sea_level: i32,
-    /// Default game mode for first-visit player data.
     default_gamemode: AtomicI8,
-    /// Whether the tick rate is running normally (not frozen/paused).
-    /// When false, movement validation checks are skipped.
     tick_runs_normally: AtomicBool,
-    /// Whether vanilla's scheduled/chunk/block-event tick phase is active.
     handling_tick: AtomicBool,
-    /// Ordered, duplicate-suppressing server block events awaiting execution.
     block_events: SyncMutex<BlockEventQueue>,
-    /// Vanilla collecting neighbor updater shared by all live block mutations.
     neighbor_updater: CollectingNeighborUpdater,
-    /// Central runtime entity ownership and lookup.
     entity_manager: WorldEntityManager,
     domain_entity_directory: SyncRwLock<Option<Arc<DomainEntityDirectory>>>,
-    /// World-global ordered block-entity ticker phase.
     block_entity_tickers: block_entity_ticker::WorldBlockEntityTickers,
-    /// Physical entries retained by this world's chunk-owned game-event registries.
     game_event_listener_count: Arc<GameEventListenerCount>,
-    /// Entity tracker for managing which players can see which entities.
     entity_tracker: EntityTracker,
-    /// Runtime IDs for pathfinder mobs currently visible to the active world.
     navigating_mobs: NavigatingMobTracker,
-    /// Weather Data needed for animating starting and stopping of rain clientside
     pub weather: SyncMutex<Weather>,
-    /// Per-level recent toggle history used by vanilla redstone-torch burnout.
     redstone_torch_toggles: SyncMutex<redstone::RedstoneTorchToggleTracker>,
-    /// World registration and sparse head index for chunk-owned scheduled ticks.
     scheduled_ticks: tick_scheduler::WorldTickScheduler,
-    /// Published block batch used by `willTickThisTick` queries during callbacks.
     scheduled_block_ticks_this_tick:
         SyncMutex<Option<Arc<tick_scheduler::ScheduledTickRunBatch<BlockRef>>>>,
-    /// Published fluid batch used by `willTickThisTick` queries during callbacks.
     scheduled_fluid_ticks_this_tick:
         SyncMutex<Option<Arc<tick_scheduler::ScheduledTickRunBatch<FluidRef>>>>,
-    /// Point of interest storage for efficient spatial queries of special blocks.
     pub poi_storage: SyncMutex<PointOfInterestStorage>,
-    /// World-change requests queued by world-local ticks for server safe-point processing.
     pending_world_changes: SyncMutex<Vec<(SharedEntity, WorldChangeRequest)>>,
 }
 
 impl World {
-    /// Creates a new world with custom configuration.
-    ///
-    /// This allows specifying storage backend (disk or RAM-only) and other options.
-    /// Uses `Arc::new_cyclic` to create a cyclic reference between
-    /// the World and its `ChunkMap`'s `WorldGenContext`.
-    ///
-    /// # Arguments
-    /// * `chunk_runtime` - The Tokio runtime for chunk operations
-    /// * `dimension_type` - Vanilla dimension type (overworld, nether, end)
-    /// * `seed` - The world seed
-    /// * `config` - World configuration including storage options
     pub async fn new_with_config(
         chunk_runtime: Arc<Runtime>,
         key: Identifier,
@@ -374,7 +302,6 @@ impl World {
         let is_flat = config.is_flat;
         let sea_level = config.sea_level;
         let default_gamemode = config.default_gamemode;
-        // Create storage backend based on config
         let storage: Arc<ChunkStorage> = match &config.storage {
             #[cfg(not(target_arch = "wasm32"))]
             WorldStorageConfig::Disk { path } => {
@@ -392,7 +319,6 @@ impl World {
             }
         };
 
-        // Create or skip level data based on config
 
         let path = config.level_data_path.as_deref().map(Path::new);
         let saved_data = SavedDataManager::new(path);
@@ -410,15 +336,6 @@ impl World {
         let ticket_storage = ChunkTicketStorage::load(&saved_data, &key).await;
         let world_border = WorldBorder::new(level_data.data().world_border)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        // let generator = Arc::new(ChunkGeneratorType::Flat(FlatChunkGenerator::new(
-        //     REGISTRY
-        //         .blocks
-        //         .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
-        //     REGISTRY.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
-        //     REGISTRY
-        //         .blocks
-        //         .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
-        // )));
 
         let mut weather = Weather::default();
         if level_data.is_raining() {
@@ -485,7 +402,6 @@ impl World {
         }))
     }
 
-    /// Cleans up the world by saving all chunks.
     #[expect(
         clippy::await_holding_lock,
         reason = "holding the write lock across await is safe here because it only happens during shutdown"
@@ -513,7 +429,6 @@ impl World {
         }
     }
 
-    /// Returns the domain this loaded world belongs to.
     #[must_use]
     pub fn domain(&self) -> &str {
         self.key.namespace.as_ref()
@@ -523,7 +438,6 @@ impl World {
         *self.domain_entity_directory.write() = Some(directory);
     }
 
-    /// Gets an entity by UUID, checking this world before other loaded worlds in its domain.
     #[must_use]
     pub fn get_entity_in_domain_by_uuid(&self, uuid: &uuid::Uuid) -> Option<SharedEntity> {
         self.get_entity_by_uuid(uuid).or_else(|| {
@@ -534,12 +448,6 @@ impl World {
         })
     }
 
-    /// Game tick: weather, time, chunk game tick (broadcasts + random/scheduled ticks),
-    /// and player logic (without chunk sending).
-    ///
-    /// * `tick_count` - The current tick number
-    /// * `runs_normally` - Whether game elements (random ticks, entities) should run.
-    ///   When false (frozen), only essential operations like chunk loading run.
     #[tracing::instrument(level = "trace", skip(self), name = "world_game_tick")]
     #[expect(
         clippy::too_many_lines,
@@ -577,7 +485,6 @@ impl World {
             self.run_block_events();
         }
 
-        // Vanilla clears this before ticking entities and block entities.
         self.handling_tick.store(false, Ordering::Relaxed);
 
         let entity_tick = {
@@ -693,10 +600,6 @@ impl World {
         }
     }
 
-    /// Saves all dirty chunks in this world to disk.
-    ///
-    /// This should be called during graceful shutdown.
-    /// Returns the number of chunks saved.
     pub async fn save_all_chunks(&self) -> io::Result<usize> {
         self.chunk_map.save_all_chunks().await
     }
