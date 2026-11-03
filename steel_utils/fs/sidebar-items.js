@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_dir_all","read_to_string","remove_dir_all","write"]};

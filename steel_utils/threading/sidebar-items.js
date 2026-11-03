@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["AVAILABLE_PARALLELISM_FALLBACK","DEBUG_STACK_SIZE"],"fn":["available_worker_threads","build_thread_pool","install_thread_spawner","worker_threads_for_available"],"static":["THREAD_SPAWNER"],"type":["ThreadSpawner"]};
